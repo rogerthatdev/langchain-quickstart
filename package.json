@@ -10,6 +10,8 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
-    "@langchain/openai": "^0.0.14"
+    "@langchain/openai": "^0.0.14",
+    "cheerio": "^1.0.0-rc.12",
+    "langchain": "^0.1.18"
   }
 }
