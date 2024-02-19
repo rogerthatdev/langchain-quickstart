@@ -209,3 +209,62 @@ const result2 = await conversationalRetrievalChain.invoke({
 });
 
 console.log(result2.answer);
+
+// Agent: where the LLM decides what steps to take
+
+// set up a tool for the retriever creaqted above
+
+import { createRetrieverTool } from "langchain/tools/retriever";
+
+const retrieverTool = await createRetrieverTool(retriever, {
+  name: "langsmith_search",
+  description:
+    "Search for information about LangSmith. For any questions about LangSmith, you must use this tool!",
+});
+
+// set up a search tool using Tavily (requires TAVILY_API_KEY to be set)
+
+import { TavilySearchResults } from "@langchain/community/tools/tavily_search";
+
+const searchTool = new TavilySearchResults();
+
+
+// create an agent to use retriver and search tools and an executor to run the
+// agent
+
+const tools = [retrieverTool, searchTool];
+
+import { pull } from "langchain/hub";
+import { createOpenAIFunctionsAgent, AgentExecutor } from "langchain/agents";
+
+// Get the prompt to use - you can modify this!
+// If you want to see the prompt in full, you can at:
+// https://smith.langchain.com/hub/hwchase17/openai-functions-agent
+const agentPrompt = await pull(
+  "hwchase17/openai-functions-agent"
+);
+
+const agentModel = new ChatOpenAI({
+  modelName: "gpt-3.5-turbo-1106",
+  temperature: 0,
+});
+
+const agent = await createOpenAIFunctionsAgent({
+  llm: agentModel,
+  tools,
+  prompt: agentPrompt,
+});
+
+const agentExecutor = new AgentExecutor({
+  agent,
+  tools,
+  verbose: true,
+});
+
+// Invoke the agent
+
+const agentResult = await agentExecutor.invoke({
+  input: "how can LangSmith help with testing?",
+});
+
+console.log(agentResult.output);
