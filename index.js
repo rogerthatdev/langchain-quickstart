@@ -131,3 +131,81 @@ const result = await retrievalChain.invoke({
   });
   
 console.log(`Retrieval chain invocation:\n`, result.answer);
+
+// Conversational retrieval chain
+
+// Create a new chain that will take in the most recent input and convo history
+// and use an LLM to generate a search query
+
+import { createHistoryAwareRetriever } from "langchain/chains/history_aware_retriever";
+import { MessagesPlaceholder } from "@langchain/core/prompts";
+
+
+// Basic prompt for comparison:
+// const basicPrompt = ChatPromptTemplate.fromMessages([
+//   ["system", "You are a world class technical documentation writer."],
+//   ["user", "{input}"],
+// ]);
+
+const historyAwarePrompt = ChatPromptTemplate.fromMessages([
+  new MessagesPlaceholder("chat_history"),
+  ["user", "{input}"],
+  [
+    "user",
+    "Given the above conversation, generate a search query to look up in order to get information relevant to the conversation",
+  ],
+]);
+
+const historyAwareRetrieverChain = await createHistoryAwareRetriever({
+  llm: chatModel,
+  retriever,
+  rephrasePrompt: historyAwarePrompt,
+});
+
+// simulate user asking a follow up question and invoke the retriever chain
+
+import { HumanMessage, AIMessage } from "@langchain/core/messages";
+
+const chatHistory = [
+  new HumanMessage("Can LangSmith help test my LLM applications?"),
+  new AIMessage("Yes!"),
+];
+
+await historyAwareRetrieverChain.invoke({
+  chat_history: chatHistory,
+  input: "Tell me how!",
+}) // returns douments about testing in LangSmith 
+
+
+// Create a new chat prompt, and use the chat history 
+
+const historyAwareRetrievalPrompt = ChatPromptTemplate.fromMessages([
+  [
+    "system",
+    "Answer the user's questions based on the below context:\n\n{context}",
+  ],
+  new MessagesPlaceholder("chat_history"),
+  ["user", "{input}"],
+]);
+
+const historyAwareCombineDocsChain = await createStuffDocumentsChain({
+  llm: chatModel,
+  prompt: historyAwareRetrievalPrompt,
+});
+
+const conversationalRetrievalChain = await createRetrievalChain({
+  retriever: historyAwareRetrieverChain,
+  combineDocsChain: historyAwareCombineDocsChain,
+});
+
+// test end-to-end
+
+const result2 = await conversationalRetrievalChain.invoke({
+  chat_history: [
+    new HumanMessage("Can LangSmith help test my LLM applications?"),
+    new AIMessage("Yes!"),
+  ],
+  input: "tell me how",
+});
+
+console.log(result2.answer);
